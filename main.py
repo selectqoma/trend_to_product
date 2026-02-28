@@ -14,7 +14,7 @@ from crewai import Crew, Process, Task
 from dotenv import load_dotenv
 
 from agents.architect import make_architect_agent
-from agents.builder import git_init, make_builder_agent, slugify
+from agents.builder import git_init, slugify
 from agents.critic import make_critic_agent
 from agents.scout import make_scout_agent
 from storage.recorder import finish_run, start_run
@@ -159,34 +159,28 @@ def _prompt_design_approval() -> bool:
         print("  Please enter y or n.")
 
 
-def _stage_builder(chosen: dict, agents_cfg: dict, tasks_cfg: dict) -> None:
-    builder = make_builder_agent(agents_cfg["builder"])
-    design = (STORAGE / "design_sheet.md").read_text() if (STORAGE / "design_sheet.md").exists() else ""
+def _stage_builder_handoff(chosen: dict) -> None:
+    """Instead of burning API tokens on a Builder agent, hand off to Claude Code."""
     slug = slugify(chosen.get("trend_title", "project"))
-    task = Task(
-        description=tasks_cfg["builder_task"]["description"].format(
-            project_slug=slug,
-            design_sheet=design,
-        ),
-        expected_output=tasks_cfg["builder_task"]["expected_output"],
-        agent=builder,
-        output_file="storage/builder_output.txt",
-    )
-    _run_crew(agents=[builder], tasks=[task])
     project_dir = Path("output") / slug
-    if project_dir.exists():
-        git_init(project_dir)
-        print(f"\nProject written to: {project_dir}")
-    else:
-        logger.warning("Builder finished but %s does not exist", project_dir)
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    SEP = "─" * 60
+    print(f"\n{SEP}")
+    print("  DESIGN APPROVED — ready to build")
+    print(SEP)
+    print(f"\n  Design sheet : storage/design_sheet.md")
+    print(f"  Output dir   : {project_dir}/")
+    print(f"\n  The Builder stage now runs via Claude Code (you) instead")
+    print(f"  of the API, saving cost and producing better code.")
+    print(f"\n  To build, open a new Claude Code session and run:")
+    print(f"\n    Read the product design at storage/design_sheet.md and")
+    print(f"    implement it as a complete starter project in {project_dir}/")
+    print(f"    including backend, tests, Dockerfile, docker-compose, and CI.\n")
+    print(SEP + "\n")
 
 
 # ── entry points ──────────────────────────────────────────────────────────────
-
-def _check_api_key() -> None:
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        sys.exit("Error: ANTHROPIC_API_KEY is not set. Add it to .env or your environment.")
-
 
 def _run_pipeline(topic: str | None, dry_run: bool) -> None:
     _check_api_key()
@@ -229,10 +223,9 @@ def _run_pipeline(topic: str | None, dry_run: bool) -> None:
             finish_run(run_id, status="error", error="Aborted by user after design review")
             sys.exit("Aborted. Edit storage/design_sheet.md or re-run to get a new design.")
 
-        # Stage 4: Builder
-        logger.info("Stage 3b — Builder")
-        _stage_builder(chosen, agents_cfg, tasks_cfg)
-        print("\nPipeline complete. Check output/ for the generated project.")
+        # Stage 4: Handoff to Claude Code
+        logger.info("Stage 3b — Builder handoff")
+        _stage_builder_handoff(chosen)
         finish_run(run_id, status="success")
 
     except KeyboardInterrupt:
