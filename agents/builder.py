@@ -12,24 +12,33 @@ logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path("output")
 
 
+def _extract_manifest(raw: str) -> dict[str, str] | None:
+    """Extract the file manifest JSON from Builder LLM output.
+
+    Uses json.JSONDecoder.raw_decode() which parses one complete JSON value
+    starting from the first '{', correctly handling nested braces, escaped
+    quotes, and backtick sequences inside string values.
+    """
+    decoder = json.JSONDecoder()
+    start = raw.find("{")
+    if start == -1:
+        return None
+    try:
+        obj, _ = decoder.raw_decode(raw, start)
+        return obj if isinstance(obj, dict) else None
+    except json.JSONDecodeError as exc:
+        logger.error("Builder: JSON parse error: %s", exc)
+        return None
+
+
 def _write_project_files(task_output: TaskOutput) -> None:
     """CrewAI task callback: parse JSON manifest from LLM output and write files."""
     raw = task_output.raw if hasattr(task_output, "raw") else str(task_output)
 
-    # Extract the JSON block from fenced code block
-    match = re.search(r"```json\s*(\{.*?\})\s*```", raw, re.DOTALL)
-    if not match:
-        # Try bare JSON object as fallback
-        match = re.search(r"(\{[^{}].*\})", raw, re.DOTALL)
-
-    if not match:
+    manifest = _extract_manifest(raw)
+    if not manifest:
         logger.error("Builder: no JSON manifest found in output")
-        return
-
-    try:
-        manifest: dict[str, str] = json.loads(match.group(1))
-    except json.JSONDecodeError as exc:
-        logger.error("Builder: JSON parse error: %s", exc)
+        logger.debug("Builder raw output (first 500 chars): %s", raw[:500])
         return
 
     # Derive slug from first key's top-level dir or fallback

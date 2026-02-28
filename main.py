@@ -107,6 +107,7 @@ def _build_crew(topic: str | None, dry_run: bool) -> tuple[Crew, list[Task]]:
         expected_output=tasks_cfg["builder_task"]["expected_output"],
         agent=builder,
         context=[architect_task],
+        output_file="storage/builder_output.txt",
         callback=_write_project_files,
     )
 
@@ -168,15 +169,39 @@ def _run_pipeline(topic: str | None, dry_run: bool) -> None:
         sys.exit(f"Pipeline error: {exc}")
 
 
+def _recover() -> None:
+    """Replay storage/builder_output.txt through the file-writing callback."""
+    from agents.builder import _extract_manifest, _write_project_files
+    from crewai.tasks.task_output import TaskOutput
+
+    builder_file = Path("storage/builder_output.txt")
+    if not builder_file.exists():
+        sys.exit("No storage/builder_output.txt found. Run the full pipeline first.")
+
+    raw = builder_file.read_text()
+    manifest = _extract_manifest(raw)
+    if not manifest:
+        sys.exit("Could not parse JSON manifest from builder_output.txt.")
+
+    # Wrap in a minimal TaskOutput so _write_project_files works unchanged
+    task_output = TaskOutput(description="recover", raw=raw, agent="builder")
+    _write_project_files(task_output)
+    print(f"Recovered {len(manifest)} files into output/")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Trend-to-Product autonomous pipeline")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--run", action="store_true", help="Run the full 4-agent pipeline")
     mode.add_argument("--dry-run", action="store_true", help="Scout only – print trends and exit")
+    mode.add_argument("--recover", action="store_true", help="Replay builder_output.txt without re-running")
     parser.add_argument("--topic", type=str, default=None, help="Optional topic focus for the Scout")
 
     args = parser.parse_args()
-    _run_pipeline(topic=args.topic, dry_run=args.dry_run)
+    if args.recover:
+        _recover()
+    else:
+        _run_pipeline(topic=args.topic, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
