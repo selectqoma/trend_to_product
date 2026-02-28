@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -31,6 +32,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path(__file__).parent / "config"
+
+
+def _parse_json_file(path: Path):
+    """Read an output file and extract JSON even when wrapped in markdown fences."""
+    text = path.read_text().strip()
+    if not text:
+        return None
+    # Try raw JSON first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # Extract from ```json ... ``` or ``` ... ```
+    match = re.search(r"```(?:json)?\s*(\[.*?\]|\{.*?\})\s*```", text, re.DOTALL)
+    if match:
+        return json.loads(match.group(1))
+    # Last resort: find first [ or { and parse from there
+    for start_char, end_char in (("[", "]"), ("{", "}")):
+        idx = text.find(start_char)
+        if idx != -1:
+            try:
+                return json.loads(text[idx:text.rfind(end_char) + 1])
+            except json.JSONDecodeError:
+                continue
+    return None
 
 
 def _load_yaml(name: str) -> dict:
@@ -113,16 +139,20 @@ def _run_pipeline(topic: str | None, dry_run: bool) -> None:
         if dry_run:
             trend_file = Path("storage/trend_list.json")
             if trend_file.exists():
-                trends = json.loads(trend_file.read_text())
-                print("\n=== TREND LIST ===")
-                for i, t in enumerate(trends, 1):
-                    print(f"{i}. {t.get('title', '?')} — {t.get('why_trending', '')}")
+                trends = _parse_json_file(trend_file)
+                if trends:
+                    print("\n=== TREND LIST ===")
+                    for i, t in enumerate(trends, 1):
+                        print(f"{i}. {t.get('title', '?')} — {t.get('why_trending', '')}")
+                else:
+                    print("Scout finished but produced no parseable JSON.")
+                    print(trend_file.read_text()[:500])
             else:
                 print("No trend_list.json produced yet.")
         else:
             winning_file = Path("storage/winning_idea.json")
             if winning_file.exists():
-                idea = json.loads(winning_file.read_text())
+                idea = _parse_json_file(winning_file)
                 if not idea:
                     logger.error("Critic rejected all ideas — no winner selected.")
                     finish_run(run_id, status="error", error="Critic rejected all ideas")
