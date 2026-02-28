@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """CLI entry point for the Trend-to-Product pipeline."""
 
+import patches  # noqa: F401 — must import before any crewai usage
 import argparse
 import json
 import logging
