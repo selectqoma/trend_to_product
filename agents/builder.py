@@ -1,58 +1,22 @@
-import json
 import logging
 import re
 import subprocess
 from pathlib import Path
 
 from crewai import Agent
-from crewai.tasks.task_output import TaskOutput
+
+from tools.file_writer import FileWriterTool
 
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = Path("output")
 
 
-def _extract_manifest(raw: str) -> dict[str, str] | None:
-    """Extract the file manifest JSON from Builder LLM output.
-
-    Uses json.JSONDecoder.raw_decode() which parses one complete JSON value
-    starting from the first '{', correctly handling nested braces, escaped
-    quotes, and backtick sequences inside string values.
-    """
-    decoder = json.JSONDecoder()
-    start = raw.find("{")
-    if start == -1:
-        return None
-    try:
-        obj, _ = decoder.raw_decode(raw, start)
-        return obj if isinstance(obj, dict) else None
-    except json.JSONDecodeError as exc:
-        logger.error("Builder: JSON parse error: %s", exc)
-        return None
+def slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40]
 
 
-def _write_project_files(task_output: TaskOutput) -> None:
-    """CrewAI task callback: parse JSON manifest from LLM output and write files."""
-    raw = task_output.raw if hasattr(task_output, "raw") else str(task_output)
-
-    manifest = _extract_manifest(raw)
-    if not manifest:
-        logger.error("Builder: no JSON manifest found in output")
-        logger.debug("Builder raw output (first 500 chars): %s", raw[:500])
-        return
-
-    # Derive slug from first key's top-level dir or fallback
-    slug = list(manifest.keys())[0].split("/")[0] if manifest else "project"
-    project_dir = OUTPUT_DIR / slug
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    for rel_path, content in manifest.items():
-        file_path = project_dir / rel_path
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content, encoding="utf-8")
-        logger.info("Wrote %s", file_path)
-
-    # Git init
+def git_init(project_dir: Path) -> None:
     try:
         subprocess.run(["git", "init"], cwd=project_dir, check=True, capture_output=True)
         subprocess.run(["git", "add", "."], cwd=project_dir, check=True, capture_output=True)
@@ -72,8 +36,8 @@ def make_builder_agent(config: dict) -> Agent:
         role=config["role"],
         goal=config["goal"],
         backstory=config["backstory"],
+        tools=[FileWriterTool()],
         llm="anthropic/claude-opus-4-6",
         verbose=True,
-        max_iter=3,
-        max_tokens=32768,
+        max_iter=25,
     )

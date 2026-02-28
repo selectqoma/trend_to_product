@@ -59,13 +59,24 @@ architect_task:
 
 builder_task:
   description: >
-    Implement the product from the Architect's design sheet. Generate a complete
-    starter project. Output MUST include a fenced JSON code block (```json ... ```)
-    containing a single object that maps relative file paths to their full string
-    contents. Cover at minimum: backend entry point, one API route, one model/schema,
-    frontend index page, README, and a CI workflow file.
-    Keep each file focused and production-ready.
+    Implement the product described in the design sheet below as a runnable starter
+    project. Use the "Write Project File" tool to write each file individually —
+    one tool call per file. Use "{project_slug}" as the project_slug for every call.
+
+    Write at minimum these files:
+    - README.md
+    - backend entry point (e.g. backend/src/main.ts or backend/main.py)
+    - one API route file
+    - one data model / schema file
+    - frontend index page
+    - .env.example
+    - .github/workflows/ci.yml
+
+    Keep each file focused and production-quality but concise. After writing all
+    files, output a short summary listing what was created.
+
+    DESIGN SHEET:
+    {design_sheet}
   expected_output: >
-    A brief summary paragraph followed by a ```json code block containing the file
-    manifest. Keys are relative paths (e.g. "backend/main.py"), values are the
-    complete file contents as strings.
+    Confirmation that all files were written via the Write Project File tool,
+    followed by a bullet list of the files created.

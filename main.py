@@ -14,7 +14,7 @@ from crewai import Crew, Process, Task
 from dotenv import load_dotenv
 
 from agents.architect import make_architect_agent
-from agents.builder import _write_project_files, make_builder_agent
+from agents.builder import git_init, make_builder_agent, slugify
 from agents.critic import make_critic_agent
 from agents.scout import make_scout_agent
 from storage.recorder import finish_run, start_run
@@ -159,17 +159,26 @@ def _prompt_design_approval() -> bool:
         print("  Please enter y or n.")
 
 
-def _stage_builder(agents_cfg: dict, tasks_cfg: dict) -> None:
+def _stage_builder(chosen: dict, agents_cfg: dict, tasks_cfg: dict) -> None:
     builder = make_builder_agent(agents_cfg["builder"])
     design = (STORAGE / "design_sheet.md").read_text() if (STORAGE / "design_sheet.md").exists() else ""
+    slug = slugify(chosen.get("trend_title", "project"))
     task = Task(
-        description=tasks_cfg["builder_task"]["description"] + f"\n\nDESIGN SHEET:\n{design}",
+        description=tasks_cfg["builder_task"]["description"].format(
+            project_slug=slug,
+            design_sheet=design,
+        ),
         expected_output=tasks_cfg["builder_task"]["expected_output"],
         agent=builder,
         output_file="storage/builder_output.txt",
-        callback=_write_project_files,
     )
     _run_crew(agents=[builder], tasks=[task])
+    project_dir = Path("output") / slug
+    if project_dir.exists():
+        git_init(project_dir)
+        print(f"\nProject written to: {project_dir}")
+    else:
+        logger.warning("Builder finished but %s does not exist", project_dir)
 
 
 # ── entry points ──────────────────────────────────────────────────────────────
@@ -222,7 +231,7 @@ def _run_pipeline(topic: str | None, dry_run: bool) -> None:
 
         # Stage 4: Builder
         logger.info("Stage 3b — Builder")
-        _stage_builder(agents_cfg, tasks_cfg)
+        _stage_builder(chosen, agents_cfg, tasks_cfg)
         print("\nPipeline complete. Check output/ for the generated project.")
         finish_run(run_id, status="success")
 
@@ -237,22 +246,14 @@ def _run_pipeline(topic: str | None, dry_run: bool) -> None:
 
 
 def _recover() -> None:
-    """Replay storage/builder_output.txt through the file-writing callback."""
-    from agents.builder import _extract_manifest
-    from crewai.tasks.task_output import TaskOutput
-
-    builder_file = STORAGE / "builder_output.txt"
-    if not builder_file.exists():
-        sys.exit("No storage/builder_output.txt found. Run the full pipeline first.")
-
-    raw = builder_file.read_text()
-    manifest = _extract_manifest(raw)
-    if not manifest:
-        sys.exit("Could not parse JSON manifest from builder_output.txt.")
-
-    task_output = TaskOutput(description="recover", raw=raw, agent="builder")
-    _write_project_files(task_output)
-    print(f"Recovered {len(manifest)} files into output/")
+    """Re-run git init on an existing output directory."""
+    dirs = sorted(Path("output").iterdir()) if Path("output").exists() else []
+    dirs = [d for d in dirs if d.is_dir()]
+    if not dirs:
+        sys.exit("No directories found in output/. Run the full pipeline first.")
+    project_dir = dirs[-1]
+    git_init(project_dir)
+    print(f"Git repo initialised at {project_dir}")
 
 
 def main() -> None:
