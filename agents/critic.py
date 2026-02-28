@@ -1,0 +1,12 @@
+from crewai import Agent
+
+
+def make_critic_agent(config: dict) -> Agent:
+    return Agent(
+        role=config["role"],
+        goal=config["goal"],
+        backstory=config["backstory"],
+        llm="claude-opus-4-6",
+        verbose=True,
+        max_iter=3,
+    )

@@ -1,0 +1,51 @@
+scout_task:
+  description: >
+    Use all available tools to collect trending topics from Hacker News, GitHub
+    Trending, Reddit, ProductHunt, and Twitter.
+    {topic_hint}
+    Synthesise findings into a JSON array of the top 10 trends, sorted by
+    estimated momentum. Each entry must include: title, source(s), why_trending,
+    and opportunity_hint.
+  expected_output: >
+    A valid JSON array with exactly 10 trend objects, each with keys:
+    title, sources (list), why_trending (string), opportunity_hint (string).
+  output_file: "storage/trend_list.json"
+
+critic_task:
+  description: >
+    Review the trend list produced by the Scout. For each trend, assess:
+    - Market size and addressable audience
+    - Existing competition and differentiation angle
+    - Monetisation potential (B2B SaaS, API, marketplace, etc.)
+    - Technical feasibility for a 3-person team in 3 months
+    Select ONE winner. Justify your choice rigorously, then output a JSON object
+    with the winning idea.
+  expected_output: >
+    A valid JSON object with keys: trend_title, problem_statement, target_user,
+    differentiation, monetisation, feasibility_score (1-10), rejection_reasons
+    (object mapping other trend titles to one-line rejection reason).
+  output_file: "storage/winning_idea.json"
+
+architect_task:
+  description: >
+    Using the winning idea from the Critic, produce a full product design sheet.
+    Include: personas (2-3), MVP feature list (max 8), recommended tech stack
+    with justification, high-level data model (entities + key fields), REST/GraphQL
+    API surface (endpoints or queries), and a 3-phase roadmap (MVP, Growth, Scale).
+  expected_output: >
+    A well-structured Markdown document covering all sections listed above.
+    Use headers, bullet points, and code blocks where appropriate.
+  output_file: "storage/design_sheet.md"
+
+builder_task:
+  description: >
+    Implement the product from the Architect's design sheet. Generate a complete
+    starter project. Output MUST include a fenced JSON code block (```json ... ```)
+    containing a single object that maps relative file paths to their full string
+    contents. Cover at minimum: backend entry point, one API route, one model/schema,
+    frontend index page, README, and a CI workflow file.
+    Keep each file focused and production-ready.
+  expected_output: >
+    A brief summary paragraph followed by a ```json code block containing the file
+    manifest. Keys are relative paths (e.g. "backend/main.py"), values are the
+    complete file contents as strings.
