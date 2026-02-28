@@ -18,20 +18,40 @@ critic_task:
     - Existing competition and differentiation angle
     - Monetisation potential (B2B SaaS, API, marketplace, etc.)
     - Technical feasibility for a 3-person team in 3 months
-    Select ONE winner. Justify your choice rigorously, then output a JSON object
-    with the winning idea.
+    Rank ALL trends, then select your TOP 3. A human will make the final choice.
   expected_output: >
-    A valid JSON object with keys: trend_title, problem_statement, target_user,
-    differentiation, monetisation, feasibility_score (1-10), rejection_reasons
-    (object mapping other trend titles to one-line rejection reason).
-  output_file: "storage/winning_idea.json"
+    A valid JSON object with exactly this shape:
+    {
+      "top3": [
+        {
+          "rank": 1,
+          "trend_title": "...",
+          "one_liner": "max 20 words describing the product",
+          "problem_statement": "...",
+          "target_user": "...",
+          "differentiation": "...",
+          "monetisation": "...",
+          "feasibility_score": 8
+        },
+        { "rank": 2, ... },
+        { "rank": 3, ... }
+      ],
+      "rejected": {
+        "Other Trend Title": "one-line rejection reason",
+        ...
+      }
+    }
+  output_file: "storage/critic_top3.json"
 
 architect_task:
   description: >
-    Using the winning idea from the Critic, produce a full product design sheet.
+    The chosen idea to design is provided below. Produce a full product design sheet.
     Include: personas (2-3), MVP feature list (max 8), recommended tech stack
     with justification, high-level data model (entities + key fields), REST/GraphQL
     API surface (endpoints or queries), and a 3-phase roadmap (MVP, Growth, Scale).
+
+    CHOSEN IDEA:
+    {chosen_idea}
   expected_output: >
     A well-structured Markdown document covering all sections listed above.
     Use headers, bullet points, and code blocks where appropriate.
