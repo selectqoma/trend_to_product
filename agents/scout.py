@@ -21,7 +21,7 @@ def make_scout_agent(config: dict) -> Agent:
             ProductHuntTool(),
             TwitterTool(),
         ],
-        llm="claude-sonnet-4-6",
+        llm="anthropic/claude-sonnet-4-6",
         verbose=True,
         max_iter=5,
     )

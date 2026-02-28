@@ -6,7 +6,7 @@ def make_architect_agent(config: dict) -> Agent:
         role=config["role"],
         goal=config["goal"],
         backstory=config["backstory"],
-        llm="claude-sonnet-4-6",
+        llm="anthropic/claude-sonnet-4-6",
         verbose=True,
         max_iter=3,
     )

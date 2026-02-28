@@ -63,7 +63,7 @@ def make_builder_agent(config: dict) -> Agent:
         role=config["role"],
         goal=config["goal"],
         backstory=config["backstory"],
-        llm="claude-opus-4-6",
+        llm="anthropic/claude-opus-4-6",
         verbose=True,
         max_iter=3,
         max_tokens=32768,
