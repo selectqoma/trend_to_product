@@ -23,5 +23,5 @@ def make_scout_agent(config: dict) -> Agent:
         ],
         llm="anthropic/claude-sonnet-4-6",
         verbose=True,
-        max_iter=5,
+        max_iter=15,
     )
